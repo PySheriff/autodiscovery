@@ -1,0 +1,58 @@
+receivers:
+  # --- Define the Anchor (Template) ---
+  # We define a dummy receiver just to set the anchor.
+  # OTel might warn about unused receivers, or we can use the first discovered device as the anchor.
+  # Here is a clean approach: define the common settings in a YAML map we reference later.
+
+  snmp/template: &snmp_defaults
+    version: v2c
+    community: public  # This can be overridden per device if needed
+    collection_interval: 60s
+    timeout: 10s
+    resource_attributes:
+      host.name: { scalar_oid: "1.3.6.1.2.1.1.5.0" }
+      snmp.sys.name: { scalar_oid: "1.3.6.1.2.1.1.5.0" }
+    metrics:
+      system.uptime:
+        unit: s
+        gauge: { value_type: double }
+        scalar_oids:
+          - oid: "1.3.6.1.2.1.1.3.0"
+
+  # --- Generate Receivers for Discovered Devices ---
+  {% for device in devices %}
+  snmp/node_{{ device.id }}:
+    <<: *snmp_defaults
+    endpoint: udp://{{ device.ip }}:161
+    community: {{ device.community }}
+  {% endfor %}
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+  # --- Generate Resource Processors (IP Tagging) ---
+  {% for device in devices %}
+  resource/hostip_{{ device.id }}:
+    attributes:
+      - { key: host.ip, action: upsert, value: "{{ device.ip }}" }
+      - { key: service.name, action: upsert, value: "snmp-node-{{ device.id }}" }
+  {% endfor %}
+
+exporters:
+  elasticsearch:
+    endpoints: ["{{ es_endpoint }}"]
+    user: "{{ es_user }}"
+    password: "{{ es_password }}"
+    mapping: { mode: ecs }
+
+service:
+  pipelines:
+    # --- Generate a Unique Pipeline per Device ---
+    {% for device in devices %}
+    metrics/node_{{ device.id }}:
+      receivers: [snmp/node_{{ device.id }}]
+      processors: [resource/hostip_{{ device.id }}, batch]
+      exporters: [elasticsearch]
+    {% endfor %}
