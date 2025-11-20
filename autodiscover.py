@@ -10,10 +10,9 @@ and reloads the collector to apply the new configuration.
 import ipaddress
 import os
 import signal
-import subprocess
 import psutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pysnmp.hlapi import *
+from pysnmp_lextudio.hlapi import *
 from jinja2 import Environment, FileSystemLoader
 
 # --- Configuration ---
