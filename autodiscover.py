@@ -26,8 +26,8 @@ COMMUNITIES = ["public", "network123", "cisco_read"]
 
 # Configuration for Exporters (passed to template)
 ES_CONFIG = {
-    "es_endpoint": "https://my-deployment.es.us-central1.gcp.cloud.es.io",
-    "es_user": "netlab",
+    "es_endpoint": "https://xxxx.es.us-central1.gcp.cloud.es.io",
+    "es_user": "USERNAME",
     "es_password": "YOUR_PASSWORD_HERE"
 }
 
