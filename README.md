@@ -67,7 +67,7 @@ ES_CONFIG = {
     "es_endpoint": "https://xxxx.es.region.gcp.cloud.es.io",
     "es_user": "netlab",
     "es_password": "YOUR_PASSWORD_HERE",
-    "es_metrics_index": "metrics-snmp"  # Index pattern for SNMP metrics
+    "es_metrics_index": "metrics-snmp-default"  # Data stream: type-dataset-namespace
 }
 
 # Subnets to scan
@@ -78,9 +78,22 @@ TARGET_SUBNETS = [
 ```
 
 **Index Pattern Options:**
+
+For **Elasticsearch Data Streams** (recommended for time-series data):
+- Use format: `<type>-<dataset>-<namespace>`
+- Example: `"metrics-snmp-default"` - Creates data stream with automatic ILM
+- Custom namespace: `"metrics-snmp-production"` or `"metrics-snmp-lab"`
+
+For **Traditional Indices**:
 - Static index: `"metrics-snmp"` - All metrics go to one index
-- Daily index: `"metrics-snmp-%{+yyyy.MM.dd}"` - Creates daily indices (e.g., metrics-snmp-2024.11.24)
-- Monthly index: `"metrics-snmp-%{+yyyy.MM}"` - Creates monthly indices (e.g., metrics-snmp-2024.11)
+- Daily index: `"metrics-snmp-%{+yyyy.MM.dd}"` - Creates daily indices
+- Monthly index: `"metrics-snmp-%{+yyyy.MM}"` - Creates monthly indices
+
+**Why use Data Streams?**
+- Automatic index lifecycle management (ILM)
+- Better performance for time-series data
+- Automatic rollover and retention policies
+- Native support in Elasticsearch 7.9+
 ```
 
 ## Usage
@@ -200,6 +213,45 @@ snmp/node_1:
 ```
 
 This keeps the file size manageable even with hundreds of devices.
+
+## Verifying Elasticsearch Data Streams
+
+After running the autodiscovery script and starting the OTel Collector, verify your data stream is created:
+
+### Check Data Stream Status
+
+```bash
+# List all data streams
+curl -X GET "https://your-es-endpoint/_data_stream?pretty" \
+  -u "username:password"
+
+# Check specific data stream
+curl -X GET "https://your-es-endpoint/_data_stream/metrics-snmp-default?pretty" \
+  -u "username:password"
+```
+
+### View Data Stream Stats
+
+```bash
+# Get statistics
+curl -X GET "https://your-es-endpoint/_data_stream/metrics-snmp-default/_stats?pretty" \
+  -u "username:password"
+```
+
+### Query Data Stream in Kibana
+
+1. Navigate to **Stack Management → Index Management → Data Streams**
+2. Look for `metrics-snmp-default`
+3. Click to view backing indices and settings
+4. Create an index pattern in Kibana: `metrics-snmp-*`
+
+### Troubleshooting Data Streams
+
+If data stream is not created automatically:
+1. Ensure Elasticsearch 7.9+ is being used
+2. Verify index name follows `<type>-<dataset>-<namespace>` format
+3. Check OTel Collector logs for connection errors
+4. Verify user has `create_index` and `write` permissions
 
 ## Troubleshooting
 

@@ -47,8 +47,13 @@ exporters:
     password: "{{ es_password }}"
     mapping: { mode: ecs }
     metrics_index: "{{ es_metrics_index }}"  # Custom index pattern for metrics
-    # To use dynamic index with date suffix, change es_metrics_index to:
-    # "metrics-snmp-%{+yyyy.MM.dd}"
+    logstash_format:
+      enabled: true
+      prefix_separator: "-"
+    # Data stream configuration
+    # Elasticsearch will automatically create data streams when:
+    # 1. Index name follows pattern: <type>-<dataset>-<namespace>
+    # 2. Data stream backing indices are created with proper ILM policy
 
 service:
   pipelines:

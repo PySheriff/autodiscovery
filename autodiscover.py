@@ -29,7 +29,7 @@ ES_CONFIG = {
     "es_endpoint": "https://xxxx.es.us-central1.gcp.cloud.es.io",
     "es_user": "USERNAME",
     "es_password": "YOUR_PASSWORD_HERE",
-    "es_metrics_index": "metrics-snmp"  # Elasticsearch index for metrics
+    "es_metrics_index": "metrics-snmp-default"  # Data stream: type-dataset-namespace
 }
 
 # Define Subnets to Scan
