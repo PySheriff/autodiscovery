@@ -11,8 +11,9 @@ import ipaddress
 import os
 import signal
 import psutil
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pysnmp_lextudio.hlapi import *
+from pysnmp.hlapi import *
 from jinja2 import Environment, FileSystemLoader
 
 # --- Configuration ---
@@ -37,18 +38,40 @@ TARGET_SUBNETS = [
     "10.255.0.0/24"
 ]
 
+
+def ensure_event_loop():
+    """Ensure there is an asyncio event loop for the current thread.
+
+    pysnmp's sync HLAPI uses asyncio under the hood and calls
+    asyncio.get_event_loop(), which raises RuntimeError in Python 3.12+
+    if no loop is set for this thread (for example in ThreadPoolExecutor
+    worker threads). This function makes sure a loop exists so that
+    getCmd()/nextCmd() can run without crashing.
+    """
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError as ex:
+        if "There is no current event loop" in str(ex):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        else:
+            raise
+
+
 def check_snmp(ip):
     """
     Checks if an IP responds to SNMP on port 161.
     Returns (ip, community) if successful, else None.
     """
+    ensure_event_loop()
+
     for community in COMMUNITIES:
         iterator = getCmd(
             SnmpEngine(),
-            CommunityData(community, mpModel=1), # v2c
+            CommunityData(community, mpModel=1),  # v2c
             UdpTransportTarget((str(ip), 161), timeout=1.5, retries=1),
             ContextData(),
-            ObjectType(ObjectIdentity('1.3.6.1.2.1.1.5.0')) # sysName
+            ObjectType(ObjectIdentity("1.3.6.1.2.1.1.5.0"))  # sysName
         )
 
         errorIndication, errorStatus, errorIndex, varBinds = next(iterator)
@@ -57,6 +80,7 @@ def check_snmp(ip):
             return (str(ip), community)
 
     return None
+
 
 def scan_and_build_inventory():
     """
@@ -91,11 +115,12 @@ def scan_and_build_inventory():
 
     # Assign IDs to devices (needed for config generation)
     # We sort by IP to ensure config stability between runs
-    valid_devices.sort(key=lambda x: ipaddress.ip_address(x['ip']))
+    valid_devices.sort(key=lambda x: ipaddress.ip_address(x["ip"]))
     for idx, device in enumerate(valid_devices):
-        device['id'] = idx + 1
+        device["id"] = idx + 1
 
     return valid_devices
+
 
 def generate_yaml(devices):
     """
@@ -121,21 +146,26 @@ def generate_yaml(devices):
 
     print(f"[*] Config written to {OUTPUT_FILE}")
 
+
 def reload_otel_collector():
     """
     Finds the running otelcol process and sends SIGHUP to reload config.
     If not running, you might want to start it via systemctl.
     """
     reloaded = False
-    for proc in psutil.process_iter(['pid', 'name']):
-        if OTEL_PROCESS_NAME in proc.info['name']:
-            print(f"[*] Sending SIGHUP to OTel Collector (PID: {proc.info['pid']})...")
-            os.kill(proc.info['pid'], signal.SIGHUP)
+    for proc in psutil.process_iter(["pid", "name"]):
+        if OTEL_PROCESS_NAME in proc.info["name"]:
+            print(
+                f"[*] Sending SIGHUP to OTel Collector "
+                f"(PID: {proc.info['pid']})..."
+            )
+            os.kill(proc.info["pid"], signal.SIGHUP)
             reloaded = True
 
     if not reloaded:
         print("[!] OTel Collector process not found. Please start it manually.")
         # Optional: subprocess.run(["systemctl", "restart", "otelcol"])
+
 
 if __name__ == "__main__":
     devices = scan_and_build_inventory()
