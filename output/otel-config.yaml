@@ -62,10 +62,13 @@ processors:
 
 exporters:
   elasticsearch:
-    endpoints: ["https://my-deployment.es.us-central1.gcp.cloud.es.io"]
-    user: "netlab"
+    endpoints: ["https://xxxx.es.us-central1.gcp.cloud.es.io"]
+    user: "USERNAME"
     password: "YOUR_PASSWORD_HERE"
     mapping: { mode: ecs }
+    metrics_index: "metrics-snmp"  # Custom index pattern for metrics
+    # To use dynamic index with date suffix, change es_metrics_index to:
+    # "metrics-snmp-%{+yyyy.MM.dd}"
 
 service:
   pipelines:

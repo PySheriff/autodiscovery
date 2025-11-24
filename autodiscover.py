@@ -28,7 +28,8 @@ COMMUNITIES = ["public", "network123", "cisco_read"]
 ES_CONFIG = {
     "es_endpoint": "https://xxxx.es.us-central1.gcp.cloud.es.io",
     "es_user": "USERNAME",
-    "es_password": "YOUR_PASSWORD_HERE"
+    "es_password": "YOUR_PASSWORD_HERE",
+    "es_metrics_index": "metrics-snmp"  # Elasticsearch index for metrics
 }
 
 # Define Subnets to Scan

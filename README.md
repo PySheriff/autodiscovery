@@ -64,9 +64,10 @@ COMMUNITIES = ["public", "network123", "cisco_read"]
 
 # Elasticsearch Configuration
 ES_CONFIG = {
-    "es_endpoint": "",
-    "es_user": "",
-    "es_password": ""
+    "es_endpoint": "https://xxxx.es.region.gcp.cloud.es.io",
+    "es_user": "netlab",
+    "es_password": "YOUR_PASSWORD_HERE",
+    "es_metrics_index": "metrics-snmp"  # Index pattern for SNMP metrics
 }
 
 # Subnets to scan
@@ -74,6 +75,12 @@ TARGET_SUBNETS = [
     "192.168.10.0/24",
     "10.255.0.0/24"
 ]
+```
+
+**Index Pattern Options:**
+- Static index: `"metrics-snmp"` - All metrics go to one index
+- Daily index: `"metrics-snmp-%{+yyyy.MM.dd}"` - Creates daily indices (e.g., metrics-snmp-2024.11.24)
+- Monthly index: `"metrics-snmp-%{+yyyy.MM}"` - Creates monthly indices (e.g., metrics-snmp-2024.11)
 ```
 
 ## Usage

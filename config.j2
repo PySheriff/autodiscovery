@@ -46,6 +46,9 @@ exporters:
     user: "{{ es_user }}"
     password: "{{ es_password }}"
     mapping: { mode: ecs }
+    metrics_index: "{{ es_metrics_index }}"  # Custom index pattern for metrics
+    # To use dynamic index with date suffix, change es_metrics_index to:
+    # "metrics-snmp-%{+yyyy.MM.dd}"
 
 service:
   pipelines:
