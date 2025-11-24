@@ -135,10 +135,11 @@ The script automatically sends SIGHUP to reload the OTel collector without dropp
 
 ### 1. Network Scanning
 
-The script uses multithreading (50 concurrent workers) to scan the configured subnets:
+The script uses async/await with a semaphore (10 concurrent connections by default) to scan the configured subnets:
 - Tests each IP address on UDP port 161
 - Tries multiple SNMP community strings
 - Queries sysName (OID 1.3.6.1.2.1.1.5.0) to verify SNMP response
+- Uses a shared SNMP engine to avoid file descriptor exhaustion
 
 ### 2. Device Inventory
 
@@ -278,9 +279,13 @@ In `autodiscover.py`, modify:
 # Reduce timeout for faster scans (less reliable)
 UdpTransportTarget((str(ip), 161), timeout=0.5, retries=0)
 
-# Increase threads for faster scanning
-with ThreadPoolExecutor(max_workers=100) as executor:
+# Adjust concurrent connections (increase if you have no file descriptor limits)
+MAX_CONCURRENT_REQUESTS = 10  # Default is 10, increase to 20-50 for faster scans
 ```
+
+**Note**: If you get "Too many open files" errors on Linux, you can either:
+- Reduce `MAX_CONCURRENT_REQUESTS` to 5
+- Increase your system's file descriptor limit: `ulimit -n 4096`
 
 ## Production Deployment Checklist
 

@@ -37,24 +37,33 @@ TARGET_SUBNETS = [
     "10.255.0.0/24"
 ]
 
-async def check_snmp(ip):
+# Limit concurrent SNMP requests to avoid "too many open files" error
+MAX_CONCURRENT_REQUESTS = 10
+
+async def check_snmp(ip, snmp_engine, semaphore):
     """
     Checks if an IP responds to SNMP on port 161.
     Returns (ip, community) if successful, else None.
+    Uses a semaphore to limit concurrent connections.
     """
-    for community in COMMUNITIES:
-        errorIndication, errorStatus, errorIndex, varBinds = await getCmd(
-            SnmpEngine(),
-            CommunityData(community, mpModel=1), # v2c
-            UdpTransportTarget((str(ip), 161), timeout=1.5, retries=1),
-            ContextData(),
-            ObjectType(ObjectIdentity('1.3.6.1.2.1.1.5.0')) # sysName
-        )
+    async with semaphore:
+        for community in COMMUNITIES:
+            try:
+                errorIndication, errorStatus, errorIndex, varBinds = await getCmd(
+                    snmp_engine,
+                    CommunityData(community, mpModel=1), # v2c
+                    UdpTransportTarget((str(ip), 161), timeout=1.5, retries=1),
+                    ContextData(),
+                    ObjectType(ObjectIdentity('1.3.6.1.2.1.1.5.0')) # sysName
+                )
 
-        if not errorIndication and not errorStatus:
-            return (str(ip), community)
+                if not errorIndication and not errorStatus:
+                    return (str(ip), community)
+            except Exception as e:
+                # Silently ignore connection errors for unreachable hosts
+                pass
 
-    return None
+        return None
 
 async def scan_and_build_inventory():
     """
@@ -71,22 +80,25 @@ async def scan_and_build_inventory():
 
     print(f"[*] Starting scan of {len(ips_to_scan)} IPs...")
 
+    # Create shared resources
+    snmp_engine = SnmpEngine()
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     valid_devices = []
 
-    # Scan in parallel using asyncio with batching to avoid overwhelming the network
-    batch_size = 50
-    for i in range(0, len(ips_to_scan), batch_size):
-        batch = ips_to_scan[i:i + batch_size]
-        results = await asyncio.gather(*[check_snmp(ip) for ip in batch], return_exceptions=True)
+    # Scan all IPs concurrently, but semaphore limits actual concurrent requests
+    results = await asyncio.gather(
+        *[check_snmp(ip, snmp_engine, semaphore) for ip in ips_to_scan],
+        return_exceptions=True
+    )
 
-        for result in results:
-            if result and not isinstance(result, Exception):
-                ip, community = result
-                print(f"[+] Discovered SNMP Device: {ip}")
-                valid_devices.append({
-                    "ip": ip,
-                    "community": community
-                })
+    for result in results:
+        if result and not isinstance(result, Exception):
+            ip, community = result
+            print(f"[+] Discovered SNMP Device: {ip}")
+            valid_devices.append({
+                "ip": ip,
+                "community": community
+            })
 
     # Assign IDs to devices (needed for config generation)
     # We sort by IP to ensure config stability between runs
