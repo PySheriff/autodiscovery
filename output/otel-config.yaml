@@ -1,0 +1,88 @@
+receivers:
+  # --- Define the Anchor (Template) ---
+  # We define a dummy receiver just to set the anchor.
+  # OTel might warn about unused receivers, or we can use the first discovered device as the anchor.
+  # Here is a clean approach: define the common settings in a YAML map we reference later.
+
+  snmp/template: &snmp_defaults
+    version: v2c
+    community: public  # This can be overridden per device if needed
+    collection_interval: 60s
+    timeout: 10s
+    resource_attributes:
+      host.name: { scalar_oid: "1.3.6.1.2.1.1.5.0" }
+      snmp.sys.name: { scalar_oid: "1.3.6.1.2.1.1.5.0" }
+    metrics:
+      system.uptime:
+        unit: s
+        gauge: { value_type: double }
+        scalar_oids:
+          - oid: "1.3.6.1.2.1.1.3.0"
+
+  # --- Generate Receivers for Discovered Devices ---
+  
+  snmp/node_1:
+    <<: *snmp_defaults
+    endpoint: udp://192.168.10.1:161
+    community: public
+  
+  snmp/node_2:
+    <<: *snmp_defaults
+    endpoint: udp://192.168.10.5:161
+    community: network123
+  
+  snmp/node_3:
+    <<: *snmp_defaults
+    endpoint: udp://10.255.0.50:161
+    community: public
+  
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+  # --- Generate Resource Processors (IP Tagging) ---
+  
+  resource/hostip_1:
+    attributes:
+      - { key: host.ip, action: upsert, value: "192.168.10.1" }
+      - { key: service.name, action: upsert, value: "snmp-node-1" }
+  
+  resource/hostip_2:
+    attributes:
+      - { key: host.ip, action: upsert, value: "192.168.10.5" }
+      - { key: service.name, action: upsert, value: "snmp-node-2" }
+  
+  resource/hostip_3:
+    attributes:
+      - { key: host.ip, action: upsert, value: "10.255.0.50" }
+      - { key: service.name, action: upsert, value: "snmp-node-3" }
+  
+
+exporters:
+  elasticsearch:
+    endpoints: ["https://my-deployment.es.us-central1.gcp.cloud.es.io"]
+    user: "netlab"
+    password: "YOUR_PASSWORD_HERE"
+    mapping: { mode: ecs }
+
+service:
+  pipelines:
+    # --- Generate a Unique Pipeline per Device ---
+    
+    metrics/node_1:
+      receivers: [snmp/node_1]
+      processors: [resource/hostip_1, batch]
+      exporters: [elasticsearch]
+    
+    metrics/node_2:
+      receivers: [snmp/node_2]
+      processors: [resource/hostip_2, batch]
+      exporters: [elasticsearch]
+    
+    metrics/node_3:
+      receivers: [snmp/node_3]
+      processors: [resource/hostip_3, batch]
+      exporters: [elasticsearch]
+    
