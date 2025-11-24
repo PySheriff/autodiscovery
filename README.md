@@ -64,9 +64,9 @@ COMMUNITIES = ["public", "network123", "cisco_read"]
 
 # Elasticsearch Configuration
 ES_CONFIG = {
-    "es_endpoint": "https://my-deployment-e71277.es.us-central1.gcp.cloud.es.io",
-    "es_user": "netlab",
-    "es_password": "fo5LqLh3g3fHYF"
+    "es_endpoint": "",
+    "es_user": "",
+    "es_password": ""
 }
 
 # Subnets to scan
